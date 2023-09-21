@@ -6,6 +6,8 @@ from typing import List
 import events as e
 from .callbacks import state_to_features
 
+import numpy as np
+
 # This is only an example!
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -85,18 +87,18 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     x_WAIT = list()
     x_BOMB = list()
     for transition in self.transitions:
-        if transition.action = 'UP':
-            x_up.append(transition)
-        else if transition.action = 'RIGHT':
-            x_up.append(transition)
-        else if transition.action = 'DOWN':
-            x_up.append(transition)
-        else if transition.action = 'LEFT':
-            x_up.append(transition)
-        else if transition.action = 'WAIT':
-            x_up.append(transition)
-        else if transition.action = 'BOMB':
-            x_up.append(transition)
+        if transition.action == 'UP':
+            x_UP.append(transition)
+        elif transition.action == 'RIGHT':
+            x_RIGHT.append(transition)
+        elif transition.action == 'DOWN':
+            x_DOWN.append(transition)
+        elif transition.action == 'LEFT':
+            x_LEFT.append(transition)
+        elif transition.action == 'WAIT':
+            x_WAIT.append(transition)
+        elif transition.action == 'BOMB':
+            x_BOMB.append(transition)
     
     state_matrix_UP = np.vstack([transition.state for transition in x_UP])
     state_matrix_RIGHT = np.vstack([transition.state for transition in x_RIGHT])
