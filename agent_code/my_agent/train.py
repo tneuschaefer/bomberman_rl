@@ -19,6 +19,11 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 
+def find_max_in_each_row(matrix):
+    max_values = []
+    for row in matrix:
+        max_values.append(max(row))
+    return np.array(max_values)
 
 def setup_training(self):
     """
@@ -121,12 +126,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     reward_vector_WAIT = np.vstack([transition.reward for transition in x_WAIT])
     reward_vector_BOMB = np.vstack([transition.reward for transition in x_BOMB])
     
-    beta[:,0] = beta[:,0] + 1/len(x_UP) sum(state_matrix_UP.T * ((reward_vector_UP + GAMA * max(beta * next_state_matrix_UP)) - state_matrix*beta[:,0]))
-    beta[:,1] = beta[:,1] + 1/len(x_RIGHT) sum(state_matrix_RIGHT.T * ((reward_vector_RIGHT + GAMA * max(beta * next_state_matrix_RIGHT)) - state_matrix*beta[:,1]))
-    beta[:,2] = beta[:,2] + 1/len(x_DOWN) sum(state_matrix_DOWN.T * ((reward_vector_DOWN + GAMA * max(beta * next_state_matrix_LEFT)) - state_matrix*beta[:,2]))
-    beta[:,3] = beta[:,3] + 1/len(x_LEFT) sum(state_matrix_LEFT.T * ((reward_vector_LEFT + GAMA * max(beta * next_state_matrix_DOWN)) - state_matrix*beta[:,3]))
-    beta[:,4] = beta[:,4] + 1/len(x_WAIT) sum(state_matrix_WAIT.T * ((reward_vector_WAIT + GAMA * max(beta * next_state_matrix_WATI)) - state_matrix*beta[:,4]))
-    beta[:,5] = beta[:,5] + 1/len(x_BOMB) sum(state_matrix_BOMB.T * ((reward_vector_BOMB + GAMA * max(beta * next_state_matrix_BOMB)) - state_matrix*beta[:,5]))
+    beta[:,0] = beta[:,0] + 1/len(x_UP) sum(state_matrix_UP.T * ((reward_vector_UP + GAMA * find_max_in_each_row(next_state_matrix_UP * beta)) - state_matrix*beta[:,0]))
+    beta[:,1] = beta[:,1] + 1/len(x_RIGHT) sum(state_matrix_RIGHT.T * ((reward_vector_RIGHT + GAMA * find_max_in_each_row(next_state_matrix_RIGHT * beta)) - state_matrix*beta[:,1]))
+    beta[:,2] = beta[:,2] + 1/len(x_DOWN) sum(state_matrix_DOWN.T * ((reward_vector_DOWN + GAMA * find_max_in_each_row(next_state_matrix_LEFT * beta)) - state_matrix*beta[:,2]))
+    beta[:,3] = beta[:,3] + 1/len(x_LEFT) sum(state_matrix_LEFT.T * ((reward_vector_LEFT + GAMA * find_max_in_each_row(next_state_matrix_DOWN * beta)) - state_matrix*beta[:,3]))
+    beta[:,4] = beta[:,4] + 1/len(x_WAIT) sum(state_matrix_WAIT.T * ((reward_vector_WAIT + GAMA * find_max_in_each_row(next_state_matrix_WATI * beta)) - state_matrix*beta[:,4]))
+    beta[:,5] = beta[:,5] + 1/len(x_BOMB) sum(state_matrix_BOMB.T * ((reward_vector_BOMB + GAMA * find_max_in_each_row(next_state_matrix_BOMB * beta)) - state_matrix*beta[:,5]))
 
 
 def reward_from_events(self, events: List[str]) -> int:
