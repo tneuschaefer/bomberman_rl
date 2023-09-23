@@ -7,6 +7,51 @@ import numpy as np
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
+def rotate90(xy):
+    xy = [xy[1], 16-xy[0]]
+    return xy
+
+def rotate180(xy):
+    xy = [16-xy[0], 16-xy[1]]
+    return xy
+
+def rotate270(xy):
+    xy = [16-xy[1], xy[0]]
+    return xy
+
+def mirroring(xy):
+    xy = [xy[1], xy[0]]
+    return xy
+
+
+def rotated_action(action, game_state):
+    if action == 'WAIT' or action == 'BOMB':
+        return action
+    
+    xy = game_state['self'][3]
+    
+    if xy[0] <= 8 and xy[1] > 8:
+        index = ACTIONS.index(action)
+        action = ACTIONS[(index+3)%4]
+    elif xy[0] > 8 and xy[1] >= 8:
+        index = ACTIONS.index(action)
+        action = ACTIONS[(index+2)%4]
+    elif xy[0] > 8 and xy[1] < 8:
+        index = ACTIONS.index(action)
+        action = ACTIONS[(index+1)%4]
+
+    if xy[0] < xy[1]:
+        if action ==  'UP':
+            return 'LEFT'
+        elif action == 'RIGHT':
+            return 'DOWN'
+        elif action == 'DOWN':
+            return 'RIGHT'
+        elif action == 'LEFT':
+            return 'UP'
+    else:
+        return action
+
 
 def setup(self):
     """
@@ -69,6 +114,49 @@ def state_to_features(game_state: dict) -> np.array:
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return None
+        
+        if game_state is None:
+        return None
+    
+    coins = np.zeros((17,17))
+    for i in game_state['coins']:
+        coins[i] = 1
+    
+    xy = game_state['self'][3]
+    
+    if xy[0] <= 8 and xy[1] > 8:
+        xy = rotate270(xy)
+        game_field = np.rot90(game_state['field'], k=3)
+        coins = np.rot90(coins, k=3)
+    elif xy[0] > 8 and xy[1] >= 8:
+        xy = rotate180(xy)
+        game_field = np.rot90(game_state['field'], k=2)
+        coins = np.rot90(coins, k=2)
+    elif xy[0] > 8 and xy[1] < 8:
+        xy = rotate90(xy)
+        game_field = np.rot90(game_state['field'], k=1)
+        coins = np.rot90(coins, k=1)
+    else:
+        game_field = game_state['field']
+
+    if xy[0] < xy[1]:
+        xy = mirroring(xy)
+        game_field = game_field.T
+        coins = coins.T
+    
+    # For example, you could construct several channels of equal shape, ...
+    channels = []
+    for x in range(1,9):
+        for y in range(1,x+1):
+            if xy[0] == x and xy[1] == y:
+                channels.append(coins.flatten())
+            else:
+                channels.append(np.zeros(289))
+                
+    # concatenate them as a feature tensor (they must have the same shape), ...
+    stacked_channels = np.stack(channels)
+    # and return them as a vector
+    return stacked_channels.reshape(-1)
 
     # For example, you could construct several channels of equal shape, ...
     channels = []

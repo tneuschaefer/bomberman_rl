@@ -85,7 +85,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.model, file)
     
-    x_UP = list()
+        x_UP = list()
     x_RIGHT = list()
     x_DOWN = list()
     x_LEFT = list()
@@ -104,34 +104,34 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
             x_WAIT.append(transition)
         elif transition.action == 'BOMB':
             x_BOMB.append(transition)
+            
+    state_matrix_UP = np.array([transition.state for transition in x_UP])
+    state_matrix_RIGHT = np.array([transition.state for transition in x_RIGHT])
+    state_matrix_DOWN = np.array([transition.state for transition in x_DOWN])
+    state_matrix_LEFT = np.array([transition.state for transition in x_LEFT])
+    state_matrix_WAIT = np.array([transition.state for transition in x_WAIT])
+    state_matrix_BOMB = np.array([transition.state for transition in x_BOMB])
     
-    state_matrix_UP = np.vstack([transition.state for transition in x_UP])
-    state_matrix_RIGHT = np.vstack([transition.state for transition in x_RIGHT])
-    state_matrix_DOWN = np.vstack([transition.state for transition in x_DOWN])
-    state_matrix_LEFT = np.vstack([transition.state for transition in x_LEFT])
-    state_matrix_WAIT = np.vstack([transition.state for transition in x_WAIT])
-    state_matrix_BOMB = np.vstack([transition.state for transition in x_BOMB])
+    next_state_matrix_UP = np.array([transition.next_state for transition in x_UP])
+    next_state_matrix_RIGHT = np.array([transition.next_state for transition in x_RIGHT])
+    next_state_matrix_DOWN = np.array([transition.next_state for transition in x_DOWN])
+    next_state_matrix_LEFT = np.array([transition.next_state for transition in x_LEFT])
+    next_state_matrix_WAIT = np.array([transition.next_state for transition in x_WAIT])
+    next_state_matrix_BOMB = np.array([transition.next_state for transition in x_BOMB])
     
-    next_state_matrix_UP = np.vstack([transition.next_state for transition in x_UP])
-    next_state_matrix_RIGHT = np.vstack([transition.next_state for transition in x_RIGHT])
-    next_state_matrix_DOWN = np.vstack([transition.next_state for transition in x_DOWN])
-    next_state_matrix_LEFT = np.vstack([transition.next_state for transition in x_LEFT])
-    next_state_matrix_WAIT = np.vstack([transition.next_state for transition in x_WAIT])
-    next_state_matrix_BOMB = np.vstack([transition.next_state for transition in x_BOMB])
+    reward_vector_UP = np.array([transition.reward for transition in x_UP])
+    reward_vector_RIGHT = np.array([transition.reward for transition in x_RIGHT])
+    reward_vector_DOWN = np.array([transition.reward for transition in x_DOWN])
+    reward_vector_LEFT = np.array([transition.reward for transition in x_LEFT])
+    reward_vector_WAIT = np.array([transition.reward for transition in x_WAIT])
+    reward_vector_BOMB = np.array([transition.reward for transition in x_BOMB])
     
-    reward_vector_UP = np.vstack([transition.reward for transition in x_UP])
-    reward_vector_RIGHT = np.vstack([transition.reward for transition in x_RIGHT])
-    reward_vector_DOWN = np.vstack([transition.reward for transition in x_LEFT])
-    reward_vector_LEFT = np.vstack([transition.reward for transition in x_DOWN])
-    reward_vector_WAIT = np.vstack([transition.reward for transition in x_WAIT])
-    reward_vector_BOMB = np.vstack([transition.reward for transition in x_BOMB])
-    
-    beta[:,0] = beta[:,0] + 1/len(x_UP) sum(state_matrix_UP.T * ((reward_vector_UP + GAMA * find_max_in_each_row(next_state_matrix_UP * beta)) - state_matrix*beta[:,0]))
-    beta[:,1] = beta[:,1] + 1/len(x_RIGHT) sum(state_matrix_RIGHT.T * ((reward_vector_RIGHT + GAMA * find_max_in_each_row(next_state_matrix_RIGHT * beta)) - state_matrix*beta[:,1]))
-    beta[:,2] = beta[:,2] + 1/len(x_DOWN) sum(state_matrix_DOWN.T * ((reward_vector_DOWN + GAMA * find_max_in_each_row(next_state_matrix_LEFT * beta)) - state_matrix*beta[:,2]))
-    beta[:,3] = beta[:,3] + 1/len(x_LEFT) sum(state_matrix_LEFT.T * ((reward_vector_LEFT + GAMA * find_max_in_each_row(next_state_matrix_DOWN * beta)) - state_matrix*beta[:,3]))
-    beta[:,4] = beta[:,4] + 1/len(x_WAIT) sum(state_matrix_WAIT.T * ((reward_vector_WAIT + GAMA * find_max_in_each_row(next_state_matrix_WATI * beta)) - state_matrix*beta[:,4]))
-    beta[:,5] = beta[:,5] + 1/len(x_BOMB) sum(state_matrix_BOMB.T * ((reward_vector_BOMB + GAMA * find_max_in_each_row(next_state_matrix_BOMB * beta)) - state_matrix*beta[:,5]))
+    self.beta[:,0] = self.beta[:,0] + 1/len(x_UP) * sum(state_matrix_UP.T @ ((reward_vector_UP + GAMA * find_max_in_each_row(next_state_matrix_UP @ self.beta)) - state_matrix_UP @ self.beta[:,0]))
+    self.beta[:,1] = self.beta[:,1] + 1/len(x_RIGHT) * sum(state_matrix_RIGHT.T @ ((reward_vector_RIGHT + GAMA * find_max_in_each_row(next_state_matrix_RIGHT @ self.beta)) - state_matrix_RIGHT @ self.beta[:,1]))
+    self.beta[:,2] = self.beta[:,2] + 1/len(x_DOWN) * sum(state_matrix_DOWN.T @ ((reward_vector_DOWN + GAMA * find_max_in_each_row(next_state_matrix_DOWN @ self.beta)) - state_matrix_DOWN @ self.beta[:,2]))
+    self.beta[:,3] = self.beta[:,3] + 1/len(x_LEFT) * sum(state_matrix_LEFT.T @ ((reward_vector_LEFT + GAMA * find_max_in_each_row(next_state_matrix_LEFT @ self.beta)) - state_matrix_LEFT @ self.beta[:,3]))
+    self.beta[:,4] = self.beta[:,4] + 1/len(x_WAIT) * sum(state_matrix_WAIT.T @ ((reward_vector_WAIT + GAMA * find_max_in_each_row(next_state_matrix_WAIT @ self.beta)) - state_matrix_WAIT @ self.beta[:,4]))
+    #self.beta[:,5] = self.beta[:,5] + 1/len(x_BOMB) * sum(state_matrix_BOMB.T @ ((reward_vector_BOMB + GAMA * find_max_in_each_row(next_state_matrix_BOMB @ self.beta)) - state_matrix_BOMB @ self.beta[:,5]))
 
 
 def reward_from_events(self, events: List[str]) -> int:
