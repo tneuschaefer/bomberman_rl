@@ -21,7 +21,7 @@ EXPERIENCE_RELAY_SIZE = 10000
 LEARNING_RATE = 0.7
 UPDATE_FREQUENCY = 4
 UPDATE_BATCH_SIZE = 128
-SYNC_FREQUENCY = 1000
+SYNC_FREQUENCY = 400
 DISCOUNT_FACTOR = 0.9
 
 def setup_training(self):
@@ -87,15 +87,13 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     :param self: The same object that is passed to all of your callbacks.
     """
-    #last_features, old_danger_state = state_to_features(last_game_state)
-    #reward = reward_from_events(self, events)
-    #self.experience_relay.append(Transition(torch.tensor(last_features, device=self.device).unsqueeze(0),
-    #                                        last_action,
-    #                                        None,
-    #                                        reward))
-    #train(self)
-    #if last_game_state["step"] % SYNC_FREQUENCY == 0:
-    #    sync(self)
+    #last_field, last_danger_state = pre_process(last_game_state)
+    #action = torch.tensor([[ACTIONS.index(last_action)]], dtype=torch.int64, device=self.device)
+    #reward = torch.tensor([reward_from_events(self, last_field, last_danger_state, None, None, events)], dtype=torch.int64, device=self.device)
+    #self.experience_relay.append(Transition(state_to_features(self, last_field), None, reward))
+
+    train(self)
+    sync(self)
 
     # Store the model
     torch.save(self.model, "model.pth")
