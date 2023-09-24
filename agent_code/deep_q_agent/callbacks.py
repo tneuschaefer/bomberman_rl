@@ -43,7 +43,7 @@ def setup(self):
 
     if not os.path.isfile("model.pth"):
         self.logger.info("Setting up model from scratch.")
-        self.model = DeepQ(ROWS * COLS, len(ACTIONS))
+        self.model = DeepQ(ROWS * COLS + 2, len(ACTIONS))
     else:
         self.logger.info("Loading model from saved state.")
         self.model = torch.load("model.pth")
@@ -54,7 +54,7 @@ def setup(self):
         self.model.to(self.device)
     elif not os.path.isfile("target_model.pth"):
         self.logger.info("Setting up target model from model.")
-        self.target_model = DeepQ(ROWS * COLS, len(ACTIONS))
+        self.target_model = DeepQ(ROWS * COLS + 2, len(ACTIONS))
         self.target_model.load_state_dict(self.model.state_dict())
     else:
         self.logger.info("Loading target model from saved state.")
@@ -62,7 +62,8 @@ def setup(self):
         
     self.exploration_rate = EXPLORATION_RATE_START
 
-    rule_based_setup(self)
+    if LEARN_FROM_RULE_AGENT:
+        rule_based_setup(self)
 
 def act(self, game_state: dict) -> str:
     """
@@ -77,10 +78,11 @@ def act(self, game_state: dict) -> str:
     if game_state["round"] != self.current_round:
         reset_self(self)
         self.current_round = game_state["round"]
+        self.logger.debug("---- NEW ROUND ----")
         if self.train:
             self.logger.debug(f"Exploration rate: {self.exploration_rate}")
 
-    field, danger_state = pre_process(game_state)
+    field, danger_state, bomb_left = pre_process(game_state)
 
     # chose between exploration and exploitation while in training
     if self.train:
@@ -93,14 +95,14 @@ def act(self, game_state: dict) -> str:
                 choice = random.choice(ACTIONS)
         else:
             self.logger.debug("Querying model for action.")
-            choice = ACTIONS[self.model.predict(state_to_features(self, field))]
+            choice = ACTIONS[self.model.predict(state_to_features(self, np.append(field.flatten(), [danger_state, bomb_left])))]
 
         self.exploration_rate = update_exploration_rate(self.exploration_rate)
     else:
         valid_action_list = valid_actions(danger_state, field, game_state['self'])
 
         self.logger.debug("Querying model for action.")
-        choice = ACTIONS[self.model.predict(state_to_features(self, field))]
+        choice = ACTIONS[self.model.predict(state_to_features(self, np.append(field.flatten(), [danger_state, bomb_left])))]
         if choice not in valid_action_list:
             self.logger.debug("Invalid action chosen. Choose randomly instead")
             choice = random.choice(valid_action_list)
@@ -108,8 +110,8 @@ def act(self, game_state: dict) -> str:
     self.logger.debug(f"action: {choice}")
     return choice
 
-def state_to_features(self, field: np.array):
-    return torch.tensor(field.flatten(), dtype=torch.float32, device=self.device).unsqueeze(0)
+def state_to_features(self, input: np.array):
+    return torch.tensor(input, dtype=torch.float32, device=self.device).unsqueeze(0)
 
 def pre_process(game_state: dict) -> tuple[np.array, list, bool]:
     """
@@ -146,7 +148,7 @@ def pre_process(game_state: dict) -> tuple[np.array, list, bool]:
 
     field[x, y] = 5
 
-    return field, danger_state
+    return field, danger_state, bomb_left
 
 def update_exploration_rate(rate: float) -> float:
     return max(rate * EXPLORATION_RATE_DECAY, EXPLORATION_RATE_MIN)
