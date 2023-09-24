@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import events as e
 from .callbacks import state_to_features
 from .callbacks import pre_process
+from .callbacks import ACTIONS
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -62,11 +63,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     old_field, old_danger_state = pre_process(old_game_state)
     new_field, new_danger_state = pre_process(new_game_state)
-    reward = reward_from_events(self, old_field, old_danger_state, new_field, new_danger_state, events)
-    self.experience_relay.append(Transition(state_to_features(self, old_field),
-                                            self_action,
-                                            state_to_features(self, new_field),
-                                            reward))
+    action = torch.tensor([[ACTIONS.index(self_action)]], dtype=torch.int64, device=self.device)
+    reward = torch.tensor([reward_from_events(self, old_field, old_danger_state, new_field, new_danger_state, events)], dtype=torch.int64, device=self.device)
+    self.experience_relay.append(Transition(state_to_features(self, old_field), action, state_to_features(self, new_field), reward))
+
     step = old_game_state["step"]
     if step % UPDATE_FREQUENCY == 0:
         train(self)
@@ -125,6 +125,7 @@ def reward_from_events(self, old_field, old_danger_state, new_field, new_danger_
         e.KILLED_OPPONENT: 250,
         e.KILLED_SELF: -1000,
         e.GOT_KILLED: -500,
+        e.SURVIVED_ROUND: 1000
     }
     reward_sum = 0
     for event in events:
@@ -137,8 +138,7 @@ def train(self):
     if len(self.experience_relay) < UPDATE_BATCH_SIZE:
         return
     
-    batch = random.sample(self.experience_relay, UPDATE_BATCH_SIZE)
-    batch = Transition(*zip(*batch))
+    batch = Transition(*zip(*random.sample(self.experience_relay, UPDATE_BATCH_SIZE)))
 
     q_s_t_a = self.model(torch.cat(batch.state)).gather(1, torch.cat(batch.action))
 
