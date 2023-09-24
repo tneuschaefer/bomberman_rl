@@ -77,6 +77,8 @@ def act(self, game_state: dict) -> str:
     if game_state["round"] != self.current_round:
         reset_self(self)
         self.current_round = game_state["round"]
+        if self.train:
+            self.logger.debug(f"Exploration rate: {self.exploration_rate}")
 
     field, danger_state = pre_process(game_state)
 
