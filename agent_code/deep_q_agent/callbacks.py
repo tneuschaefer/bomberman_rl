@@ -77,7 +77,6 @@ def act(self, game_state: dict) -> str:
 
     # chose between exploration and exploitation while in training
     if self.train:
-
         if np.random.rand() < self.exploration_rate:
             self.exploration_rate = update_exploration_rate(self.exploration_rate)
 
@@ -85,13 +84,18 @@ def act(self, game_state: dict) -> str:
             valid_action_list = valid_actions(danger_state, field, game_state['self'])
             if len(valid_action_list) == 0:
                 self.logger.debug("No valid action available")
-                valid_action_list.append('LEFT')   
-            return random.choice(valid_action_list)
+                valid_action_list.append('LEFT')
+            
+            choice = random.choice(valid_action_list)
+            self.logger.debug(f"action: {choice}")
+            return choice
         
         self.exploration_rate = update_exploration_rate(self.exploration_rate)
 
     self.logger.debug("Querying model for action.")
-    return ACTIONS[self.model.predict(state_to_features(self, field))]
+    choice = ACTIONS[self.model.predict(state_to_features(self, field))]
+    self.logger.debug(f"action: {choice}")
+    return choice
 
 def state_to_features(self, field: np.array):
     return torch.tensor(field.flatten(), dtype=torch.float32, device=self.device).unsqueeze(0)
