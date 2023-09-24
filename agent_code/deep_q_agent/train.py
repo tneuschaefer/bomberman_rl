@@ -118,7 +118,7 @@ def reward_from_events(self, old_field, old_danger_state, new_field, new_danger_
         e.MOVED_RIGHT: 1,
         e.MOVED_UP: 1,
         e.MOVED_DOWN: 1,
-        e.INVALID_ACTION: -10,
+        e.INVALID_ACTION: -50,
         e.BOMB_DROPPED: 2,
         e.CRATE_DESTROYED: 5,
         e.COIN_COLLECTED: 50,
