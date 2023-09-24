@@ -21,9 +21,9 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 EXPLORATION_RATE_START = 1
 EXPLORATION_RATE_DECAY = 0.999
 EXPLORATION_RATE_MIN = 0.1
-BOMBING_LEGAL = False
+BOMBING_LEGAL = True
 
-LEARN_FROM_RULE_AGENT = False
+LEARN_FROM_RULE_AGENT = True
 
 def setup(self):
     """
@@ -169,6 +169,9 @@ def valid_actions(danger_state: bool, field: np.array, self_state) -> list:
     if field[x, y + 1] in [0,3]: valid_actions.append('DOWN')
     if bomb_left > 0 and BOMBING_LEGAL: valid_actions.append('BOMB')
     if not danger_state: valid_actions.append('WAIT')
+
+    if len(valid_actions) == 0:
+        valid_actions.append('LEFT')
 
     return valid_actions
 

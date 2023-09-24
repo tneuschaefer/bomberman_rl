@@ -117,6 +117,8 @@ def reward_from_events(self, old_field, old_danger_state, old_bomb_left, new_fie
             reward_sum += 500
         elif e.WAITED in events or e.BOMB_DROPPED in events:
             reward_sum -= 50
+        elif e.INVALID_ACTION in events:
+            reward_sum -= 40
 
     game_rewards = {
         e.MOVED_LEFT: 1,
@@ -125,7 +127,7 @@ def reward_from_events(self, old_field, old_danger_state, old_bomb_left, new_fie
         e.MOVED_DOWN: 1,
         e.WAITED: -1,
         e.INVALID_ACTION: -10,
-        e.BOMB_DROPPED: 2,
+        e.BOMB_DROPPED: 1,
         e.CRATE_DESTROYED: 5,
         e.COIN_COLLECTED: 50,
         e.KILLED_OPPONENT: 250,
@@ -133,7 +135,6 @@ def reward_from_events(self, old_field, old_danger_state, old_bomb_left, new_fie
         e.GOT_KILLED: -500,
         e.SURVIVED_ROUND: 1000
     }
-    reward_sum = 0
     for event in events:
         if event in game_rewards:
             reward_sum += game_rewards[event]
