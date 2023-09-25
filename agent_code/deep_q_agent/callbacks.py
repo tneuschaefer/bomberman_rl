@@ -2,9 +2,6 @@ import os
 import random
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 
 import numpy as np
 
@@ -27,15 +24,7 @@ LEARN_FROM_RULE_AGENT = False
 
 def setup(self):
     """
-    Setup your code. This is called once when loading each agent.
-    Make sure that you prepare everything such that act(...) can be called.
-
-    When in training mode, the separate `setup_training` in train.py is called
-    after this method. This separation allows you to share your trained agent
-    with other students, without revealing your training code.
-
-    In this example, our model is a set of probabilities over actions
-    that are is independent of the game state.
+    Sets up the agent
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
@@ -76,7 +65,8 @@ def act(self, game_state: dict) -> str:
     """
     # Check if we are in a different round
     if game_state["round"] != self.current_round:
-        reset_self(self)
+        if LEARN_FROM_RULE_AGENT:
+            reset_self(self)
         self.current_round = game_state["round"]
         self.logger.debug("---- NEW ROUND ----")
         if self.train:
@@ -104,18 +94,23 @@ def act(self, game_state: dict) -> str:
         self.logger.debug("Querying model for action.")
         choice = ACTIONS[self.model.predict(state_to_features(self, np.append(field.flatten(), [danger_state, bomb_left])))]
         if choice not in valid_action_list:
-            self.logger.debug("Invalid action chosen. Choose randomly instead")
+            self.logger.debug(f"Invalid action chosen. Random from: {valid_action_list}")
             choice = random.choice(valid_action_list)
 
     self.logger.debug(f"action: {choice}")
     return choice
 
 def state_to_features(self, input: np.array):
+    '''
+    Converts the pre-processed game state to the input of our model.
+
+    :param input: np.array consisting of the pre processed field flatten, with danger_state and bomb_left appended
+    '''
     return torch.tensor(input, dtype=torch.float32, device=self.device).unsqueeze(0)
 
 def pre_process(game_state: dict) -> tuple[np.array, list, bool]:
     """
-    Converts the game state to the input of our model.
+    Pre-processes the game state.
 
     :param game_state:  A dictionary describing the current game board.
     :return: np.array
@@ -128,38 +123,46 @@ def pre_process(game_state: dict) -> tuple[np.array, list, bool]:
     danger_state = False
 
     _, _, bomb_left, (x, y) = game_state['self']
-    # -1 where the agent can't go (wall or active explosion)
     field = game_state['field']
+    # -1 where the agent can't go (wall or active explosion)
     field = np.where(game_state['explosion_map'] != 0, -1, field)
 
     bombs = game_state['bombs']
+    # 2 where active bomb is
     for (xb, yb), t in bombs:
         if (xb == x) and (abs(yb - y) < 4): danger_state = True
         if (yb == y) and (abs(xb - x) < 4): danger_state = True
         field[xb, yb] = 2
 
     coins = game_state['coins']
+    # 3 where coins are
     for (xc, yc) in coins:
         field[xc, yc] = 3
 
     others = game_state['others']
+    # 4 where enemies are
     for (_, _, _, (xo, yo)) in others:
         field[xo, yo] = 4
 
+    # 5 agents own position
     field[x, y] = 5
 
     return field, danger_state, bomb_left
 
 def update_exploration_rate(rate: float) -> float:
+    '''
+    Reduces the chance the agent choses exploration vs exploitation every game step,
+    down to the minimum exploration rate
+    '''
     return max(rate * EXPLORATION_RATE_DECAY, EXPLORATION_RATE_MIN)
 
 def valid_actions(danger_state: bool, field: np.array, self_state) -> list:
     '''
-    Checks valid actions that are generally valid
+    Reports back all actions that are generally valid
 
     :param danger_state:  bool describing if the agent is in danger of getting blown up
     :param field: numpy array describing the playing field
-    :param bomb_left: bool describing whether the agent can place a bomb
+    :param self_state: tupel describing the state of the agent
     '''
     _, _, bomb_left, (x, y) = self_state
     valid_actions = []
@@ -176,7 +179,11 @@ def valid_actions(danger_state: bool, field: np.array, self_state) -> list:
     return valid_actions
 
 def look_for_targets(free_space, start, targets, logger=None):
-    """Find direction of closest target that can be reached via free tiles.
+    """
+    Copied directly from rule_based_agent. Only used when training off of
+    rule_based_agent instead of chosing random actions.
+
+    Find direction of closest target that can be reached via free tiles.
 
     Performs a breadth-first search of the reachable free tiles until a target is encountered.
     If no target can be reached, the path that takes the agent closest to any target is chosen.
@@ -225,7 +232,11 @@ def look_for_targets(free_space, start, targets, logger=None):
         current = parent_dict[current]
 
 def rule_based_setup(self):
-    """Called once before a set of games to initialize data structures etc.
+    """
+    Copied directly from rule_based_agent. Only used when training off of
+    rule_based_agent instead of chosing random actions.
+
+    Called once before a set of games to initialize data structures etc.
 
     The 'self' object passed to this method will be the same in all other
     callback methods. You can assign new properties (like bomb_history below)
@@ -242,6 +253,10 @@ def rule_based_setup(self):
     self.current_round = 0
 
 def reset_self(self):
+    '''
+    Copied directly from rule_based_agent. Only used when training off of
+    rule_based_agent instead of chosing random actions.
+    '''
     self.bomb_history = deque([], 5)
     self.coordinate_history = deque([], 20)
     # While this timer is positive, agent will not hunt/attack opponents
@@ -249,6 +264,9 @@ def reset_self(self):
 
 def rule_based_act(self, game_state):
     """
+    Copied directly from rule_based_agent. Only used when training off of
+    rule_based_agent instead of chosing random actions.
+
     Called each game step to determine the agent's next action.
 
     You can find out about the state of the game environment via game_state,

@@ -1,6 +1,5 @@
 from collections import namedtuple, deque
 
-import pickle
 import random
 from typing import List
 import numpy as np
@@ -8,7 +7,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 
 import events as e
 from .callbacks import state_to_features
@@ -45,14 +43,10 @@ def setup_training(self):
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
-    Called once per step to allow intermediate rewards based on game events.
+    After each step in the game a reward is calculated and the transition gets saved.
 
-    When this method is called, self.events will contain a list of all game
-    events relevant to your agent that occurred during the previous step. Consult
-    settings.py to see what events are tracked. You can hand out rewards to your
-    agent based on these events and your knowledge of the (new) game state.
-
-    This is *one* of the places where you could update your agent.
+    With UPDATE_FREQUENCY the model gets trained and with SYNC_FREQUENCY the target model gets updated
+    to the state dictionary of the main model
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     :param old_game_state: The state that was passed to the last call of `act`.
@@ -80,36 +74,21 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
-    Called at the end of each game or when the agent died to hand out final rewards.
-    This replaces game_events_occurred in this round.
-
-    This is similar to game_events_occurred. self.events will contain all events that
-    occurred during your agent's final step.
-
-    This is *one* of the places where you could update your agent.
-    This is also a good place to store an agent that you updated.
+    Trains, synchronizes and stores the 2 networks after the end of each round.
 
     :param self: The same object that is passed to all of your callbacks.
     """
-    #last_field, last_danger_state, last_bomb_left = pre_process(last_game_state)
-    #action = torch.tensor([[ACTIONS.index(last_action)]], dtype=torch.int64, device=self.device)
-    #reward = torch.tensor([reward_from_events(self, last_field, last_danger_state, None, None, events)], dtype=torch.int64, device=self.device)
-    #self.experience_relay.append(Transition(state_to_features(self, last_field), None, reward))
 
     train(self)
     sync(self)
 
-    # Store the model
     torch.save(self.model, "model.pth")
     torch.save(self.target_model, "target_model.pth")
 
 
 def reward_from_events(self, old_field, old_danger_state, old_bomb_left, new_field, new_danger_state, new_bomb_left, events) -> int:
     """
-    *This is not a required function, but an idea to structure your code.*
-
-    Here you can modify the rewards your agent get so as to en/discourage
-    certain behavior.
+    Calculates the rewards.
     """
     reward_sum = 0
     if old_danger_state:
@@ -142,28 +121,36 @@ def reward_from_events(self, old_field, old_danger_state, old_bomb_left, new_fie
     return reward_sum
 
 def train(self):
+    '''
+    Training happens here using a random sample of memorized transitions
+    '''
     if len(self.experience_relay) < UPDATE_BATCH_SIZE:
         return
     
+    # each transition entry contains a batch
     batch = Transition(*zip(*random.sample(self.experience_relay, UPDATE_BATCH_SIZE)))
 
+    # Q(s_t,a)
     q_s_t_a = self.model(torch.cat(batch.state)).gather(1, torch.cat(batch.action))
 
     with torch.no_grad():
+        # V(s_{t+1}) using target model
         v_s_t_1 = self.target_model(torch.cat(batch.next_state)).max(1)[0]
-    # Compute the expected Q values
+    # Q(s_{t+1},a) expected Q values
     q_s_t_1_a = (v_s_t_1 * DISCOUNT_FACTOR) + torch.cat(batch.reward)
 
-    # Compute Huber loss
-    criterion = nn.SmoothL1Loss()
-    self.loss = criterion(q_s_t_a, q_s_t_1_a.unsqueeze(1))
-
-    # Optimize the model
     self.optimizer.zero_grad()
-    self.loss.backward()
-    # In-place gradient clipping
-    torch.nn.utils.clip_grad_value_(self.model.parameters(), 100)
+
+    # Huber loss
+    criterion = nn.HuberLoss()
+    loss = criterion(q_s_t_a, q_s_t_1_a.unsqueeze(1))
+    loss.backward()
+
+    nn.utils.clip_grad_value_(self.model.parameters(), 90)
     self.optimizer.step()
 
 def sync(self):
+    '''
+    Updates the target model with the state dictionary from the main model
+    '''
     self.target_model.load_state_dict(self.model.state_dict())
