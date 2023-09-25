@@ -53,6 +53,7 @@ def rotated_action(action, game_state):
         return action
 
 
+
 def setup(self):
     """
     Setup your code. This is called once when loading each agent.
@@ -67,6 +68,9 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+     
+    self.beta = np.zeros((4+(4*17),6))
+    
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(len(ACTIONS))
@@ -87,14 +91,21 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
     # todo Exploration vs exploitation
-    random_prob = .1
+    
+    self.logger.info(game_state['self'])
+    
+    if game_state['round'] > 10:
+        random_prob = 0.05
+    else:
+        random_prob = 1/(0.5*game_state['round'])
+
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, .0])
 
     self.logger.debug("Querying model for action.")
-    return np.random.choice(ACTIONS, p=self.model)
+    return rotated_action(ACTIONS[np.argmax(state_to_features(game_state)@self.beta)], game_state)
 
 
 def state_to_features(game_state: dict) -> np.array:
@@ -114,56 +125,85 @@ def state_to_features(game_state: dict) -> np.array:
     # This is the dict before the game begins and after it ends
     if game_state is None:
         return None
-        
-        if game_state is None:
-        return None
-    
-    coins = np.zeros((17,17))
-    for i in game_state['coins']:
-        coins[i] = 1
     
     xy = game_state['self'][3]
+    coins = []
+    bombs = []
     
     if xy[0] <= 8 and xy[1] > 8:
         xy = rotate270(xy)
         game_field = np.rot90(game_state['field'], k=3)
-        coins = np.rot90(coins, k=3)
+        explosion_map = np.rot90(game_state['explosion_map'], k=3)
+        for c in game_state['coins']:
+            coins.append(rotate270(c))
+        for b in game_state['bombs']:
+            bombs.append((rotate270(game_state['bombs'][0]),game_state['bombs'][1])
     elif xy[0] > 8 and xy[1] >= 8:
         xy = rotate180(xy)
         game_field = np.rot90(game_state['field'], k=2)
-        coins = np.rot90(coins, k=2)
+        explosion_map = np.rot90(game_state['explosion_map'], k=2)
+        for c in game_state['coins']:
+            coins.append(rotate180(c))
+        for b in game_state['bombs']:
+            bombs.append((rotate180(game_state['bombs'][0]),game_state['bombs'][1])
     elif xy[0] > 8 and xy[1] < 8:
         xy = rotate90(xy)
         game_field = np.rot90(game_state['field'], k=1)
-        coins = np.rot90(coins, k=1)
+        explosion_map = np.rot90(game_state['explosion_map'], k=1)
+        for c in game_state['coins']:
+            coins.append(rotate90(c))
+        for b in game_state['bombs']:
+            bombs.append((rotate90(game_state['bombs'][0]),game_state['bombs'][1])
     else:
         game_field = game_state['field']
+        explosion_map = game_state['explosion_map']
+        coins = game_state['coins']
+        bombs = game_state['bombs']
 
     if xy[0] < xy[1]:
         xy = mirroring(xy)
         game_field = game_field.T
-        coins = coins.T
+        for c in coins:
+            c = mirroring(c)
+    
+    nearest_coin = (0,0)
+    distance_nearest_coin = 0
+    if coins:
+        distance_nearest_coin = 31
+        for c in coins:
+            c_distance = abs(xy[0]-c[0])+abs(xy[1]-c[1])
+            if c_distance <= distance_nearest_coin:
+                distance_nearest_coin = c_distance
+                nearest_coin = c
+    
+    nearest_bomb = (0,0)
+    distance_nearest_bomb = 0
+    if coins:
+        distance_nearest_bomb = 31
+        for b in bombs:
+            b_distance = abs(xy[0]-c[0][0])+abs(xy[1]-c[0][1])
+            if b_distance <= distance_nearest_bomb:
+                distance_nearest_bomb = b_distance
+                nearest_bomb = b
+
+    X = np.array(xy)
+    X = np.append(X, game_state['self'][1:3])
+    X = np.append(X, game_field.flatten())
+    X = np.append(X, eplosion_map.flatten())
+    #X = np.append(X, nearest_coin)
+    #X = np.append(X, distance_nearest_coin)
+    #X = np.append(X, nearest_bomb)
+    #X = np.append(X, distance_nearest_bomb)
     
     # For example, you could construct several channels of equal shape, ...
     channels = []
     for x in range(1,9):
-        for y in range(1,x+1):
+        for y in range(1,x+1) and (x%2==0 or y%2==0): # 26 possible positions
             if xy[0] == x and xy[1] == y:
-                channels.append(coins.flatten())
+                channels.append(X)
             else:
-                channels.append(np.zeros(289))
+                channels.append(np.zeros(len(X)))
                 
-    # concatenate them as a feature tensor (they must have the same shape), ...
-    stacked_channels = np.stack(channels)
-    # and return them as a vector
-    return stacked_channels.reshape(-1)
-
-    # For example, you could construct several channels of equal shape, ...
-    channels = []
-    channels.append(game_state['round'])
-    channels.append(game_state['step'])
-    channels.append(game_state['self'][-1])
-    channels.append(game_state['field'].flatten)
     # concatenate them as a feature tensor (they must have the same shape), ...
     stacked_channels = np.stack(channels)
     # and return them as a vector
