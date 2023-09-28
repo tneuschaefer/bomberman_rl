@@ -29,17 +29,17 @@ def setup(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
     self.current_round = 0
+    self.device = torch.device("cpu")
 
     if not os.path.isfile("model.pth"):
         self.logger.info("Setting up model from scratch.")
         self.model = DeepQ(ROWS * COLS + 2, len(ACTIONS))
     else:
         self.logger.info("Loading model from saved state.")
-        self.model = torch.load("model.pth")
+        self.model = torch.load("model.pth", map_location=self.device)
 
     if not self.train:
         self.model.eval()
-        self.device = torch.device("cpu")
         self.model.to(self.device)
     elif not os.path.isfile("target_model.pth"):
         self.logger.info("Setting up target model from model.")
@@ -47,7 +47,7 @@ def setup(self):
         self.target_model.load_state_dict(self.model.state_dict())
     else:
         self.logger.info("Loading target model from saved state.")
-        self.target_model = torch.load("target_model.pth")
+        self.target_model = torch.load("target_model.pth", map_location=self.device)
         
     self.exploration_rate = EXPLORATION_RATE_START
 
