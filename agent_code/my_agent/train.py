@@ -110,11 +110,14 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(state_to_features(last_game_state), rotated_action(last_action, last_game_state), np.zeros(4+(4*17)), reward_from_events(self, events)))
+    self.transitions.append(Transition(state_to_features(last_game_state), rotated_action(last_action, last_game_state), np.zeros(8502), reward_from_events(self, events)))
 
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.model, file)
+    
+    if last_game_state['round'] < 3:
+        return
     
     x_UP = list()
     x_RIGHT = list()
@@ -173,9 +176,11 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 5,
+        e.COIN_COLLECTED: 1,
+        e.COIN_FOUND: 0.1,
         e.KILLED_OPPONENT: 5,
-        e.INVALID_ACTION: -0.1
+        e.KILLED_SELF: -5,
+        #e.INVALID_ACTION: -0.01
         #PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
     reward_sum = 0
