@@ -4,6 +4,7 @@ import random
 
 import numpy as np
 
+phi = 10
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
@@ -92,11 +93,11 @@ def act(self, game_state: dict) -> str:
     """
     # todo Exploration vs exploitation
     
-    if game_state['round'] > 10:
+    if game_state['round'] > 50:
         random_prob = 0.05
     else:
-        random_prob = 1/(0.5*game_state['round'])
-
+        random_prob = np.exp(-(game_state['round']/phi)
+    
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
@@ -164,10 +165,12 @@ def state_to_features(game_state: dict) -> np.array:
         game_field = game_field.T
         for c in coins:
             c = mirroring(c)
+        for b in bombs:
+            b = mirroring(b)
     
     bombs_map = np.zeros((17,17))
     for b in bombs:
-        bombs_map[b[0]] = 4-b[1]
+        bombs_map[b[0]] = 3-b[1]
     
     coins_map = np.zeros((17,17))
     for c in coins:

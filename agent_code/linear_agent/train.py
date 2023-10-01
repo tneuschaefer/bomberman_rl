@@ -13,9 +13,9 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 1000  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 250  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-GAMA = 0.5
+GAMMA = 0.7
 
 # Events
 PLACEHOLDER_EVENT = 'Placeholder'
@@ -89,8 +89,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
     # Idea: Add your own events to hand out rewards
-    #if ...:
-       # events.append(PLACEHOLDER_EVENT)
+    if (e.BOMB_EXPLODED in events) and (not e.KILLED_SELF in events):
+        events.append(PLACEHOLDER_EVENT)
 
     # state_to_features is defined in callbacks.py
     self.transitions.append(Transition(state_to_features(old_game_state), rotated_action(self_action, old_game_state), state_to_features(new_game_state), reward_from_events(self, events)))
@@ -160,12 +160,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     reward_vector_WAIT = np.array([transition.reward for transition in x_WAIT])
     reward_vector_BOMB = np.array([transition.reward for transition in x_BOMB])
     
-    self.beta[:,0] = self.beta[:,0] + 1/len(x_UP) * (state_matrix_UP.T @ ((reward_vector_UP + GAMA * find_max_in_each_row(next_state_matrix_UP @ self.beta)) - state_matrix_UP @ self.beta[:,0]))
-    self.beta[:,1] = self.beta[:,1] + 1/len(x_RIGHT) * (state_matrix_RIGHT.T @ ((reward_vector_RIGHT + GAMA * find_max_in_each_row(next_state_matrix_RIGHT @ self.beta)) - state_matrix_RIGHT @ self.beta[:,1]))
-    self.beta[:,2] = self.beta[:,2] + 1/len(x_DOWN) * (state_matrix_DOWN.T @ ((reward_vector_DOWN + GAMA * find_max_in_each_row(next_state_matrix_DOWN @ self.beta)) - state_matrix_DOWN @ self.beta[:,2]))
-    self.beta[:,3] = self.beta[:,3] + 1/len(x_LEFT) * (state_matrix_LEFT.T @ ((reward_vector_LEFT + GAMA * find_max_in_each_row(next_state_matrix_LEFT @ self.beta)) - state_matrix_LEFT @ self.beta[:,3]))
-    self.beta[:,4] = self.beta[:,4] + 1/len(x_WAIT) * (state_matrix_WAIT.T @ ((reward_vector_WAIT + GAMA * find_max_in_each_row(next_state_matrix_WAIT @ self.beta)) - state_matrix_WAIT @ self.beta[:,4]))
-    self.beta[:,5] = self.beta[:,5] + 1/len(x_BOMB) * (state_matrix_BOMB.T @ ((reward_vector_BOMB + GAMA * find_max_in_each_row(next_state_matrix_BOMB @ self.beta)) - state_matrix_BOMB @ self.beta[:,5]))
+    self.beta[:,0] = self.beta[:,0] + 1/len(x_UP) * (state_matrix_UP.T @ ((reward_vector_UP + GAMMA * find_max_in_each_row(next_state_matrix_UP @ self.beta)) - state_matrix_UP @ self.beta[:,0]))
+    self.beta[:,1] = self.beta[:,1] + 1/len(x_RIGHT) * (state_matrix_RIGHT.T @ ((reward_vector_RIGHT + GAMMA * find_max_in_each_row(next_state_matrix_RIGHT @ self.beta)) - state_matrix_RIGHT @ self.beta[:,1]))
+    self.beta[:,2] = self.beta[:,2] + 1/len(x_DOWN) * (state_matrix_DOWN.T @ ((reward_vector_DOWN + GAMMA * find_max_in_each_row(next_state_matrix_DOWN @ self.beta)) - state_matrix_DOWN @ self.beta[:,2]))
+    self.beta[:,3] = self.beta[:,3] + 1/len(x_LEFT) * (state_matrix_LEFT.T @ ((reward_vector_LEFT + GAMMA * find_max_in_each_row(next_state_matrix_LEFT @ self.beta)) - state_matrix_LEFT @ self.beta[:,3]))
+    self.beta[:,4] = self.beta[:,4] + 1/len(x_WAIT) * (state_matrix_WAIT.T @ ((reward_vector_WAIT + GAMMA * find_max_in_each_row(next_state_matrix_WAIT @ self.beta)) - state_matrix_WAIT @ self.beta[:,4]))
+    self.beta[:,5] = self.beta[:,5] + 1/len(x_BOMB) * (state_matrix_BOMB.T @ ((reward_vector_BOMB + GAMMA * find_max_in_each_row(next_state_matrix_BOMB @ self.beta)) - state_matrix_BOMB @ self.beta[:,5]))
     
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -180,8 +180,8 @@ def reward_from_events(self, events: List[str]) -> int:
         e.COIN_FOUND: 0.1,
         e.KILLED_OPPONENT: 5,
         e.KILLED_SELF: -5,
-        #e.INVALID_ACTION: -0.01
-        #PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
+        e.INVALID_ACTION: -0.1,
+        PLACEHOLDER_EVENT: 1  # idea: the custom event is bad
     }
     reward_sum = 0
     for event in events:
